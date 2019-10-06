@@ -1,0 +1,15 @@
+attrdict
+beautifulsoup4
+cchardet
+Click
+gevent
+lxml
+m3u8
+matplotlib
+mysqlclient
+opencv-contrib-python
+Pillow
+python-dateutil
+requests
+selenium
+tensorflow
