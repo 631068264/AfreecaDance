@@ -34,13 +34,13 @@ class DATA:
 
 Get vod thumbnail from AfreecaTV
 
-<img src="https://tva1.sinaimg.cn/large/006y8mN6ly1g7ov37dzcjj319y0ritjs.jpg" style="zoom:40%"/>
+<img src="https://tva1.sinaimg.cn/large/006y8mN6ly1g7ov37dzcjj319y0ritjs.jpg" width="400" height="790"/>
 
 ##  Split thumbnail
 
 Split and resize thumbnail into small pictures by opencv and they are assigned to train set and test set
 
-<img src="https://tva1.sinaimg.cn/large/006y8mN6ly1g7ov1n39aej305q03874e.jpg" style="zoom:40%"/>
+<img src="https://tva1.sinaimg.cn/large/006y8mN6ly1g7ov1n39aej305q03874e.jpg" width="400" height="790"/>
 
 ## CNN Model
 
