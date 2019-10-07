@@ -35,23 +35,9 @@ valid_set = {
 }
 
 
-def train():
-    model.train()
-
-
 def valid(tar_station: str):
     process.valid_set(valid_set)
     model.valid_run(tar_station, small_range_sec=60)
-
-
-def local_run(user_id: str, tar_station: str, tar_sec: int = 60):
-    process = ThumbnailProcess(user_id)
-    model = CNNModel(user_id)
-    sm = SnippetMerge(user_id)
-    process.split_img(tar_station)
-    model_result = model.local_run(tar_station, tar_sec=tar_sec)
-    if model_result:
-        sm.run(tar_station, tar_time_range=model_result)
 
 
 def get_vod_by_set(user_id: str, tar_station: str, ):
@@ -59,8 +45,5 @@ def get_vod_by_set(user_id: str, tar_station: str, ):
     model_result = sm._trans_set2result(valid_set)
     sm.run(tar_station, tar_time_range=model_result[tar_station])
 
-
-# train()
-# valid('47974231')
-local_run('rlrlvkvk123', '48238906', tar_sec=0)
+valid('47974231')
 # get_vod_by_set('rlrlvkvk123', '47974231')

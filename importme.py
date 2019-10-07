@@ -21,3 +21,4 @@ def init():
 
     # log setting
     logger.AutoLog.log_path = 'logs'
+

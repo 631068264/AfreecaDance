@@ -18,7 +18,7 @@ sys.path.append(project_home)
 
 def init():
     import os
-    from base import logger, smartpool
+    from base import logger
     from etc import config
 
     # log setting
