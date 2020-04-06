@@ -364,7 +364,7 @@ class CNNModel:
         :return:
         """
         y_predict = self.model()
-        saver = tf.train.Saver()
+        saver = tf.compat.v1.train.Saver()
         with tf.compat.v1.Session() as sess:
             saver.restore(sess, self.model_name)
             predict_y = tf.argmax(y_predict, -1)

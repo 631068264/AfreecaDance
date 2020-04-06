@@ -38,14 +38,30 @@ Get vod thumbnail from AfreecaTV
 
 ##  Split thumbnail
 
-Split and resize thumbnail into small pictures by opencv and they are assigned to train set and test set
+Split and resize thumbnails into small pictures by **opencv** and they are divided into some data set
 
 ## CNN Model
 
-Train a CNN model to classify and get dance time range in vod
+Train a CNN model to get dance time range in vod
 
 ## Get vod
 
-According to the time range to download ts files and than merge to a mp4 (ts to mp4)
+Parse **.m3u8**, download **ts** files and  merge/compress to mp4 (ts to mp4) by **ffmpeg**
 
 
+# Usage
+
+use `click` lib for cmd
+
+```
+Usage: run.py [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  fix-thumbnail  fix thumbnail by station_num
+  thumbnail      get thumbnails by bj_id
+  train          cnn model train
+  vod            create target video
+```
