@@ -10,7 +10,6 @@ importme.init()
 
 from base.base_spider import ThumbnailProcess
 
-spider = ThumbnailProcess('rlrlvkvk123')
 train_set = {
     # '37604625': {
     #     '37604625_0:20:0': [(51, 59)],
@@ -235,4 +234,7 @@ train_set = {
         '45080947_0:25:0': [(1, 47)],
     },
 }
-spider.train_set(train_set, label_balance=1.3)
+
+if __name__ == '__main__':
+    spider = ThumbnailProcess('rlrlvkvk123')
+    spider.train_set(train_set, label_balance=1.3)

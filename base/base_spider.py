@@ -554,6 +554,13 @@ class ThumbnailProcess(ThumbnailSpider):
         return 0
 
     def train_set(self, label_info: typing.Dict, test_size: float = 0.05, label_balance: float = 1):
+        """
+
+        :param label_info:
+        :param test_size:
+        :param label_balance:
+        :return:
+        """
         self.label_info = label_info
 
         for dir_name, label in self.label_info.items():
@@ -613,6 +620,8 @@ class ThumbnailProcess(ThumbnailSpider):
     def _split_train_test(self, test_size: float = 0.05, label_balance: float = 1):
         """
         训练集 测试集 分离
+        :param test_size:  数据集分训练和测试 测试比列
+        :param label_balance: 数据集正负数量比
         :return:
         """
         test_path = Path(self.TEST_PATH)
