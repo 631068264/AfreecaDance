@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 import typing
 
+MIN_SEC = 60
+HOUR_SEC = 24 * MIN_SEC
+
 
 class Duration:
     h = 0
@@ -28,7 +31,7 @@ class Duration:
         return cls.h * 3600 + cls.m * 60 + cls.s
 
     @classmethod
-    def delta(cls, h=0, m=0, s: int = 0) -> 'Duration':
+    def _delta(cls, h=0, m=0, s: int = 0) -> 'Duration':
         cls.h = h
         cls.m = m
         cls.s = s
@@ -63,14 +66,14 @@ class duration_delta:
 
     def __add__(self, other):
         if isinstance(other, Duration):
-            return Duration.delta(self.h + other.h,
-                                  self.m + other.m,
-                                  self.s + other.s)
+            return Duration._delta(self.h + other.h,
+                                   self.m + other.m,
+                                   self.s + other.s)
         return NotImplemented
 
     def __sub__(self, other):
         if isinstance(other, Duration):
-            return Duration.delta(self.h - other.h,
-                                  self.m - other.m,
-                                  self.s - other.s)
+            return Duration._delta(self.h - other.h,
+                                   self.m - other.m,
+                                   self.s - other.s)
         return NotImplemented

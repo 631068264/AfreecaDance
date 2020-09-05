@@ -27,14 +27,14 @@ from etc import config
 
 
 class SnippetMerge:
-    def __init__(self, user_id: str):
-        self.user_id = user_id
-        self.stash = Stash(f'afreecatv_{self.user_id}')
+    def __init__(self, bj_id: str):
+        self.bj_id = bj_id
+        self.stash = Stash(f'afreecatv_{self.bj_id}')
         self.log = AutoLog.file_log('m3u8_merge')
         self.VOD_PATH = self.pre_path('vod')
 
     def pre_path(self, dir_name: str) -> str:
-        data_path = Path(config.DATA.DATA_PATH, self.user_id, dir_name)
+        data_path = Path(config.DATA.DATA_PATH, self.bj_id, dir_name)
         if not data_path.exists():
             data_path.mkdir(parents=True)
         return str(data_path)
@@ -58,11 +58,11 @@ class SnippetMerge:
                             is_ok = func(self, *args, **kwargs)
                             if is_ok:
                                 return is_ok
-                            self.log.error(f'retry[{retry_time}:{self.user_id}:{func.__name__}]:{args, kwargs}')
+                            self.log.error(f'retry[{retry_time}:{self.bj_id}:{func.__name__}]:{args, kwargs}')
                             retry_time += 1
                         except Exception:
                             self.log.error(
-                                f'retry[{retry_time}:{self.user_id}:{func.__name__}]:{args, kwargs} \n' + util.error_msg())
+                                f'retry[{retry_time}:{self.bj_id}:{func.__name__}]:{args, kwargs} \n' + util.error_msg())
 
                 elif times > 0:
                     for i in range(times):
@@ -70,12 +70,12 @@ class SnippetMerge:
                             is_ok = func(self, *args, **kwargs)
                             if is_ok:
                                 return is_ok
-                            self.log.error(f'retry[{retry_time}:{self.user_id}:{func.__name__}]:{args, kwargs}')
+                            self.log.error(f'retry[{retry_time}:{self.bj_id}:{func.__name__}]:{args, kwargs}')
                             retry_time += 1
                         except Exception:
                             self.log.error(
-                                f'retry[{retry_time}:{self.user_id}:{func.__name__}]:{args} \n' + util.error_msg())
-                    self.log.error(f'Fail retry[{retry_time}:{self.user_id}:{func.__name__}]:{args, kwargs}')
+                                f'retry[{retry_time}:{self.bj_id}:{func.__name__}]:{args} \n' + util.error_msg())
+                    self.log.error(f'Fail retry[{retry_time}:{self.bj_id}:{func.__name__}]:{args, kwargs}')
 
             return new_handler
 
@@ -91,13 +91,13 @@ class SnippetMerge:
                 with open(str(path), 'wb') as f:
                     for r in resp.iter_content(chunk_size=chunk_size):
                         f.write(r)
-                self.log.info(f'[{self.user_id}:{str(path.parent).split("/")[-1]}] download {path.name} success')
+                self.log.info(f'[{self.bj_id}:{str(path.parent).split("/")[-1]}] download {path.name} success')
                 return True
         except (Timeout, ConnectionError):
             self.log.error(f'[TIMEOUT get]:{url}:{param}')
             return False
         except Exception:
-            self.log.error(f'[{self.user_id}:{str(path.parent).split("/")[-1]}] : {path.name}\n' + util.error_msg())
+            self.log.error(f'[{self.bj_id}:{str(path.parent).split("/")[-1]}] : {path.name}\n' + util.error_msg())
             return False
 
     def _prepare_video(self, vod: typing.Dict) -> typing.Dict:
@@ -168,8 +168,8 @@ class SnippetMerge:
                 os.remove(merge_path)
                 for i in file_list:
                     i.unlink()
-                subprocess.check_call(compress_cmd, shell=True)
-                os.remove(compress_path)
+                # subprocess.check_call(compress_cmd, shell=True)
+                # os.remove(compress_path)
             except subprocess.CalledProcessError as e:
                 self.log.error(util.error_msg())
                 return
@@ -179,9 +179,9 @@ class SnippetMerge:
     def _merge_m3u8_by_tar_time(self, station_num: str, vod: typing.Dict, tar_time_range: typing.List):
         path = Path(self.VOD_PATH, str(station_num))
         os.makedirs(path, exist_ok=True)
-        self.log.info(f'[{self.user_id}:{station_num}] get vod m3u8 info')
+        self.log.info(f'[{self.bj_id}:{station_num}] get vod m3u8 info')
         tar_video = self._parse_m3u8(vod)
-        self.log.info(f'[{self.user_id}:{station_num}] get vod m3u8 info success')
+        self.log.info(f'[{self.bj_id}:{station_num}] get vod m3u8 info success')
         pool = Pool(20)
         for t in tar_time_range:
             min_range, max_range = t
@@ -194,7 +194,7 @@ class SnippetMerge:
                     pool.add(gevent.spawn(self.down, url=tar_video[i], path=ts_path))
 
         pool.join()
-        self.log.info(f'[{self.user_id}:{station_num}] download ts success')
+        self.log.info(f'[{self.bj_id}:{station_num}] download ts success')
         self._ts2mp4(path, output_name=station_num)
 
     def _trans_set2result(self, vod_set: dict) -> typing.Dict:
@@ -217,11 +217,12 @@ class SnippetMerge:
             v.setdefault('cum_duration', tmp)
             tmp += v['duration']
 
-    def run(self, station_num: str, tar_time_range: typing.List):
+    def run(self, station_num: str, tar_time_range: typing.List, ignore=False):
         vod = self.stash.get(self.video_key(station_num))
         self._prepare_vod_cum(vod)
         if not vod or vod['type'] != VOD_TYPE.VOD:
             return
-
+        if ignore and Path.exists(Path(self.VOD_PATH, station_num)):
+            return
         os.makedirs(Path(self.VOD_PATH, station_num), exist_ok=True)
         self._merge_m3u8_by_tar_time(station_num, vod, tar_time_range)

@@ -20,7 +20,9 @@ importme.init()
 
 from base.logger import AutoLog
 import random
-from base.timeutil import Duration, duration_delta
+from base.timeutil import Duration, duration_delta, MIN_SEC
+import pandas as pd
+import talib as ta
 import re
 import os
 import typing
@@ -59,6 +61,18 @@ class AfreecaTV:
         # self.account_id = config.AfricaAccount.UID
         # self.account_pwd = config.AfricaAccount.PWD
 
+    def video_key(self, station_num):
+        return f'{station_num}:video_info'
+
+    def station_key(self, station_num):
+        return f'{station_num}:vodparam'
+
+    def view_cnt_key(self, station_num):
+        return f'{station_num}:view_cnt'
+
+    def global_key(self, key) -> str:
+        return f'{self.bj_id}:{key}'
+
     def _init_account(self):
         if config.AfricaAccount.UID and config.AfricaAccount.PWD:
             self.account_id = config.AfricaAccount.UID
@@ -82,11 +96,11 @@ class AfreecaTV:
                             is_ok = func(self, *args, **kwargs)
                             if is_ok:
                                 return is_ok
-                            self.log.error(f'retry[{retry_time}:{self.user_id}:{func.__name__}]:{args}')
+                            self.log.error(f'retry[{retry_time}:{self.bj_id}:{func.__name__}]:{args}')
                             retry_time += 1
                         except Exception:
                             self.log.error(
-                                f'retry[{retry_time}:{self.user_id}:{func.__name__}]:{args} \n' + util.error_msg())
+                                f'retry[{retry_time}:{self.bj_id}:{func.__name__}]:{args} \n' + util.error_msg())
 
                 elif times > 0:
                     for i in range(times):
@@ -94,12 +108,12 @@ class AfreecaTV:
                             is_ok = func(self, *args, **kwargs)
                             if is_ok:
                                 return is_ok
-                            self.log.error(f'retry[{retry_time}:{self.user_id}:{func.__name__}]:{args}')
+                            self.log.error(f'retry[{retry_time}:{self.bj_id}:{func.__name__}]:{args}')
                             retry_time += 1
                         except Exception:
                             self.log.error(
-                                f'retry[{retry_time}:{self.user_id}:{func.__name__}]:{args} \n' + util.error_msg())
-                    self.log.error(f'Fail retry[{retry_time}:{self.user_id}:{func.__name__}]:{args}')
+                                f'retry[{retry_time}:{self.bj_id}:{func.__name__}]:{args} \n' + util.error_msg())
+                    self.log.error(f'Fail retry[{retry_time}:{self.bj_id}:{func.__name__}]:{args}')
 
             return new_handler
 
@@ -173,39 +187,33 @@ class ThumbnailSpider(AfreecaTV):
     采集缩略图
     """
 
-    def __init__(self, user_id: str):
+    def __init__(self, bj_id: str):
         super().__init__()
-        self.user_id = user_id
-        self.stash = Stash(f'afreecatv_{self.user_id}')
+        self.bj_id = bj_id
+        self.stash = Stash(f'afreecatv_{self.bj_id}')
 
         # public url
         self.INFO_URL = 'http://afbbs.afreecatv.com:8080/api/video/get_video_info.php'
         self.THUMBNAIL_URL = 'http://videoimg.afreecatv.com/php/SnapshotLoad.php'
         self.VOD_URL_FORMAT = 'http://bjapi.afreecatv.com/api/%s/vods?page={page}' \
-                              '&per_page=20&orderby=reg_date' % (self.user_id,)
+                              '&per_page=20&orderby=reg_date' % (self.bj_id,)
         self.USER_VOD_FORMAT = 'http://bjapi.afreecatv.com/api/%s/vods/user?page={page}' \
-                               '&orderby=reg_date' % (self.user_id,)
+                               '&orderby=reg_date' % (self.bj_id,)
         self.STATION_URL = 'http://vod.afreecatv.com/PLAYER/STATION/{station_num}'
         # path
-        self.STATION_PATH = str(Path(config.PROJECT_PATH, f'afreecatv_vod_thumbnail/{self.user_id}'))
+        self.STATION_PATH = str(Path(config.PROJECT_PATH, f'afreecatv_vod_thumbnail/{self.bj_id}'))
         # thumbnail 参数
         self.thumbnailDuration = config.THUMBNAIL_SIZE.DURATION_SEC
         self.rowCount = config.THUMBNAIL_SIZE.ROW_COUNT
         self.columnCount = config.THUMBNAIL_SIZE.COLUMN_COUNT
         self.log = AutoLog.file_log('spider_thumbnail')
 
-    def video_key(self, station_num):
-        return f'{station_num}:video_info'
-
-    def station_key(self, station_num):
-        return f'{station_num}:vodparam'
-
     def add_bad_vod(self, station_num: int):
         """诡异的station"""
         self.log.error(f'[add_bad_vod]:{station_num}')
-        bad_vod = self.stash.setdefault(VOD_TYPE.BAD, set())
+        bad_vod = self.stash.setdefault(self.global_key(VOD_TYPE.BAD), set())
         bad_vod.add(station_num)
-        self.stash[VOD_TYPE.BAD] = bad_vod
+        self.stash[self.global_key(VOD_TYPE.BAD)] = bad_vod
 
     def check_bad_vod(self, station_num: int) -> bool:
         """诡异的station"""
@@ -356,13 +364,13 @@ class ThumbnailSpider(AfreecaTV):
         :param key:
         :return:
         """
-        is_ok, meta = self._get_vod(1, url, stash_key, append=False, is_check=True)
+        is_ok, meta = self._get_vod(1, url, self.global_key(stash_key), append=False, is_check=True)
         if not is_ok:
             pool = Pool(10)
             for i in range(2, meta['last_page'] + 1):
-                pool.add(gevent.spawn(self._get_vod, i, url, stash_key))
+                pool.add(gevent.spawn(self._get_vod, i, url, self.global_key(stash_key)))
             pool.join()
-            return self.stash.get(stash_key, set())
+            return self.stash.get(self.global_key(stash_key), set())
         return meta
 
     def download_vod(self, station_num: int, rewrite=False):
@@ -381,7 +389,7 @@ class ThumbnailSpider(AfreecaTV):
 
     def test_img(self, img_name: str):
         station_num, h, m, s = re.search(r'(.*?)_(.*?):(.*?):(.*)\.jpg', img_name).groups()
-        param = self._get_thumbnail_param(int(station_num), Duration.delta(int(h), int(m), int(s)).to_duration())
+        param = self._get_thumbnail_param(int(station_num), Duration._delta(int(h), int(m), int(s)).to_duration())
         print(self.THUMBNAIL_URL + util.join_params(**param))
 
     def test_download_img(self, station_num: int, t: float):
@@ -393,7 +401,7 @@ class ThumbnailSpider(AfreecaTV):
         dirs = set(dirs) - {'.DS_Store'}
 
         def del_bad_video_info():
-            vod = self.stash.get(VOD_TYPE.VOD, set()) | self.stash.get(VOD_TYPE.USER_VOD, set())
+            vod = self.stash.get(self.global_key(VOD_TYPE.VOD), set()) | self.stash.get(self.global_key(VOD_TYPE.USER_VOD), set())
             diff = vod - set(map(int, dirs))
             for d in diff:
                 del self.stash[self.video_key(d)]
@@ -454,7 +462,7 @@ class ThumbnailSpider(AfreecaTV):
 
     def fix(self, station_num: int, rewrite=True, login: bool = False):
         self._init_spider(login)
-        self.log.info(f'fix start [{self.user_id}:{station_num}]')
+        self.log.info(f'fix start [{self.bj_id}:{station_num}]')
         self.download_vod(station_num=station_num, rewrite=rewrite)
 
 
@@ -475,7 +483,7 @@ class ThumbnailProcess(ThumbnailSpider):
         self.label_info = None
 
     def pre_path(self, dir_name: str) -> str:
-        data_path = Path(config.DATA.DATA_PATH, self.user_id, dir_name)
+        data_path = Path(config.DATA.DATA_PATH, self.bj_id, dir_name)
         if not data_path.exists():
             data_path.mkdir(parents=True)
         return str(data_path)
@@ -501,7 +509,7 @@ class ThumbnailProcess(ThumbnailSpider):
                 roi = cvutil.resize(roi, self.resize_width, self.resize_height)
                 cvutil.save_img(sub_path, roi)
                 if os.path.getsize(sub_path) < 1024:
-                    self.log.info(f'[{self.user_id}:{station_str}] invalid img size DEL {sub_path}')
+                    self.log.info(f'[{self.bj_id}:{station_str}] invalid img size DEL {sub_path}')
                     os.remove(sub_path)
                 num += 1
         return width, height
@@ -526,7 +534,7 @@ class ThumbnailProcess(ThumbnailSpider):
                 roi = cvutil.resize(roi, self.resize_width, self.resize_height)
                 cvutil.save_img(sub_path, roi)
                 if os.path.getsize(sub_path) < 1024:
-                    self.log.info(f'[{self.user_id}:{station_str}] invalid img size DEL {sub_path}')
+                    self.log.info(f'[{self.bj_id}:{station_str}] invalid img size DEL {sub_path}')
                     os.remove(sub_path)
                 num += 1
         return width, height
@@ -570,7 +578,7 @@ class ThumbnailProcess(ThumbnailSpider):
                     sub_path = partial(self.sub_path, file_dir=self.TRAIN_PATH)
                     w, h = self._split_label_img_by_size(str(img_path), self.rowCount, self.columnCount, get_label, sub_path)
                     # sise_dict[w * h] = (w, h, str(i))
-            self.log.info(f'[{self.user_id}:{dir_name}] SUCCESS')
+            self.log.info(f'[{self.bj_id}:{dir_name}] SUCCESS')
 
         self._split_train_test(test_size, label_balance)
         self._stat()
@@ -585,7 +593,7 @@ class ThumbnailProcess(ThumbnailSpider):
                     sub_path = partial(self.sub_path, file_dir=self.VALID_PATH)
                     w, h = self._split_label_img_by_size(str(img_path), self.rowCount, self.columnCount, get_label, sub_path, replace_exist=False)
                     # sise_dict[w * h] = (w, h, str(i))
-            self.log.info(f'[{self.user_id}:{dir_name}] SUCCESS')
+            self.log.info(f'[{self.bj_id}:{dir_name}] SUCCESS')
 
     def split_img(self, dir_name: str):
         shutil.rmtree(self.VALID_PATH)
@@ -608,14 +616,14 @@ class ThumbnailProcess(ThumbnailSpider):
             tar_count = len(tar_list)
             total_count = other_count + tar_count
 
-            self.log.info(f'[{self.user_id}:{data_name}] : {tar_count}/{total_count} {(tar_count / total_count):.2%}')
+            self.log.info(f'[{self.bj_id}:{data_name}] : {tar_count}/{total_count} {(tar_count / total_count):.2%}')
             return total_count, total_list
 
         train_count, train_list = _stat_path(self.TRAIN_PATH, 'train')
         self.stash['train_data'] = list(map(str, train_list))
         test_count, test_list = _stat_path(self.TEST_PATH, 'test')
         self.stash['test_data'] = list(map(str, test_list))
-        self.log.info(f'[{self.user_id}] : TRAIN {train_count} TEST {test_count} {(test_count / (train_count + test_count)):.2%}')
+        self.log.info(f'[{self.bj_id}] : TRAIN {train_count} TEST {test_count} {(test_count / (train_count + test_count)):.2%}')
 
     def _split_train_test(self, test_size: float = 0.05, label_balance: float = 1):
         """
@@ -638,7 +646,7 @@ class ThumbnailProcess(ThumbnailSpider):
             other_count = len(other_list)
             tar_count = len(tar_list)
             total_count = other_count + tar_count
-            self.log.info(f'[{self.user_id}:平衡种类前] : {tar_count}/{total_count} {(tar_count / total_count):.2%}')
+            self.log.info(f'[{self.bj_id}:平衡种类前] : {tar_count}/{total_count} {(tar_count / total_count):.2%}')
 
             balance_count = min(other_count, int(tar_count * label_balance))
             other_set = random.sample(other_list, balance_count)
@@ -657,3 +665,110 @@ class ThumbnailProcess(ThumbnailSpider):
 
         for test_img in test_img_set:
             test_img.replace(Path(self.TEST_PATH, test_img.name))
+
+
+class ViewCnt(AfreecaTV):
+
+    def __init__(self, bj_id: str):
+        super().__init__()
+        self.bj_id = bj_id
+        self.stash = Stash(f'afreecatv_{self.bj_id}')
+        self.log = AutoLog.file_log('spider_view_cnt')
+
+        self.VIEW_CNT_URL = 'https://apisabana.afreecatv.com/service/vod_star2_stats.php'
+        self.post_data = {
+            'szAction': 'view',
+            'nDeviceType': 1,
+            'nTitleNo': None,
+            'szLang': 'zh_CN',
+            'nStationNo': None,
+            'nBbsNo': None,
+            'szType': 'bj',
+            'szModule': 'BjViewCnt',
+            'szSysType': 'html5',
+            'szLoginId': self.account_id,
+            'nIdx': 1,
+        }
+
+        self.perfect_start_min = 5
+        self.smooth_factor = 2
+        self.range_factor = 4
+
+    def _init_spider(self, login=False):
+        if login:
+            self.login()
+        self.get_session()
+
+    def run(self) -> dict:
+        self._init_spider(False)
+        self.log.info('spider start')
+
+        target_dict = {}
+        target = None
+        vods = self.stash.get(self.global_key(VOD_TYPE.VOD))
+        if vods:
+            for station_num in vods:
+                vod_info = self.stash.get(self.video_key(station_num))
+                time_duration = vod_info['total']
+                if self.view_cnt_key(station_num) in self.stash:
+
+                    target = self._find_top(self.stash[self.view_cnt_key(station_num)], time_duration)
+                else:
+                    vodparam = self.stash.get(self.station_key(station_num))
+                    if vodparam:
+                        vod_param = util.get_url_params(vodparam)
+                        self.post_data['nTitleNo'] = vod_param['nTitleNo']
+                        self.post_data['nStationNo'] = vod_param['nStationNo']
+                        self.post_data['nBbsNo'] = vod_param['nBbsNo']
+                        resp = self.post(self.VIEW_CNT_URL, self.post_data)
+                        if resp:
+                            raw_data = resp.json()
+                            if raw_data['result'] == 1:
+                                cnt_data = raw_data['data']['cnt']
+                                self.stash[self.view_cnt_key(station_num)] = cnt_data
+                                target = self._find_top(cnt_data, time_duration)
+                if target:
+                    target_dict[station_num] = target
+        return target_dict
+
+    def _find_top(self, raw_data: typing.List, time_duration: int) -> typing.Optional[typing.List]:
+        if not raw_data or not time_duration:
+            return
+
+        cnt = pd.DataFrame(raw_data, columns=['index', 'value'])
+
+        perfect_duration = (Duration.set_duration(time_duration) - duration_delta(m=self.perfect_start_min)).to_duration()
+        per_index = time_duration // len(cnt)
+        diff_duration = time_duration - perfect_duration
+        perfect_start = diff_duration // per_index
+
+        y = pd.DataFrame(raw_data[perfect_start:], columns=['index', 'value'])
+        sma_period = perfect_start * self.smooth_factor
+        Y = ta.SMA(y['value'].values.astype('float64'), timeperiod=sma_period).tolist()
+
+        top = []
+        for i, d in enumerate(Y):
+            if d > 0 and i < len(Y) - 1:
+                if (Y[i - 1] <= d and d >= Y[i + 1]) or (i == 0 and d >= Y[i + 1]):
+                    top.append((i + perfect_start, d))
+
+        def row_sma(row):
+            cond = (row['start_index'] <= cnt['index']) & (cnt['index'] <= row['index'])
+            max_id = cnt.where(cond).dropna()['value'].idxmax()
+            result = cnt.loc[max_id]
+            row['ori_index'] = result['index']
+            row['ori_value'] = result['value']
+            ori_duration = result['index'] * per_index
+            start_duration = Duration.set_duration(ori_duration - MIN_SEC * self.range_factor).to_str()
+            end_duration = Duration.set_duration(ori_duration + MIN_SEC * self.range_factor).to_str()
+            row['ori_range_duration'] = (start_duration, end_duration)
+            return row
+
+        top_df = pd.DataFrame(top, columns=['index', 'value'])
+        top_df['value'].where(top_df['value'] > top_df['value'].mean(), inplace=True)
+        top_df = top_df.where(top_df['value'] > 0).dropna()
+        top_df['start_index'] = top_df['index'] - sma_period + 1
+        top_df['index'] = top_df['index']
+        target = top_df.apply(row_sma, axis=1)
+
+        return target['ori_range_duration'].drop_duplicates().to_list()

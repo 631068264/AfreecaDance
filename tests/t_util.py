@@ -18,7 +18,6 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 from base import cvutil
 from base.timeutil import Duration, duration_delta
 from pathlib import Path
-from skimage import io
 
 
 def sub_path(path: str, num, label: int = 0) -> str:
@@ -43,23 +42,6 @@ def pil_cut(img, path: str, num: int, left_top_width, left_top_height, right_bot
     roi.save(a)
     if os.path.getsize(a) < 1024 * 1:
         os.remove(a)
-
-
-def sk_load(path: str):
-    img = io.imread(path)
-    total_height, total_width = img.shape[:2]
-    return img, total_width, total_height
-
-
-def sk_cut(img, path: str, num: int, left_top_width, left_top_height, right_bottom_width, right_bottom_height: int):
-    roi = img[left_top_height:right_bottom_height, left_top_width:right_bottom_width]
-    a = sub_path(path, num)
-    try:
-        io.imsave(a, roi)
-    except:
-        print(os.path.getsize(a))
-    # if os.path.getsize(a) < 1024 * 1:
-    #     os.remove(a)
 
 
 def cv_load(path: str):
@@ -91,8 +73,8 @@ def split_img_by_size(load_func: typing.Callable, path: str, row_len, column_len
             num += 1
 
 
-PATH = '36997061_0:10:0.jpg'
-# img_load, img_cut = cv_load,cv_cut
-img_load, img_cut = sk_load, sk_cut
-# img_load, img_cut = pil_load, pil_cut
-split_img_by_size(img_load, PATH, 10, 10, img_cut)
+# PATH = '36997061_0:10:0.jpg'
+# # img_load, img_cut = cv_load,cv_cut
+# img_load, img_cut = sk_load, sk_cut
+# # img_load, img_cut = pil_load, pil_cut
+# split_img_by_size(img_load, PATH, 10, 10, img_cut)

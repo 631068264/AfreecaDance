@@ -132,6 +132,10 @@ def url_params(url):
     return {k: v[0] for k, v in parse.parse_qs(query).items()}
 
 
+def get_url_params(vodparam):
+    return {k: v[0] for k, v in parse.parse_qs(vodparam).items()}
+
+
 def post_json(url, params=None, method=const.METHOD.GET, without_ua=False, **kwargs):
     headers = kwargs.get("headers", {})
     if not without_ua:
